@@ -42,7 +42,12 @@ class GeminiProvider(AIProvider):
         return {
             Capability.TEXT_TO_IMAGE,
             Capability.IMAGE_TO_IMAGE,
+            Capability.INPAINT,
+            Capability.REFERENCE_IMAGE,
             Capability.VARIATIONS,
+            Capability.MASK,
+            Capability.STRENGTH_CONTROL,
+            Capability.SEED_CONTROL,
             Capability.NEGATIVE_PROMPT,
         }
 
