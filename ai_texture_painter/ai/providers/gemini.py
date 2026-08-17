@@ -137,7 +137,7 @@ class GeminiProvider(AIProvider):
         logger.info("Sending request to Google API", model=model, url=url, is_imagen=is_imagen)
 
         try:
-            response_data = HttpClient.post_json(url, data=payload, headers=headers, timeout=90.0)
+            response_data = HttpClient.post_json(url, data=payload, headers=headers, timeout=360.0)
 
             images: List[np.ndarray] = []
 

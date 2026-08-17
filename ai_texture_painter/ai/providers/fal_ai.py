@@ -27,8 +27,9 @@ logger = get_logger("ai.providers.fal")
 FAL_RUN_BASE = "https://fal.run"
 FAL_QUEUE_BASE = "https://queue.fal.run"
 
-MAX_POLL_ATTEMPTS = 60
-POLL_INTERVAL = 1.5
+# Uzun süren modeller (GPT Image 2, FLUX Pro vb.) için 10 dakikaya (600 saniye) kadar tolerans
+MAX_POLL_ATTEMPTS = 300
+POLL_INTERVAL = 2.0
 
 
 class FalAIProvider(AIProvider):
@@ -327,19 +328,27 @@ class FalAIProvider(AIProvider):
         logger.info("Sending request to fal.ai", model=model, prompt=request.prompt[:50])
 
         try:
-            # 1. Doğrudan fal.run ile dene
+            # 1. Doğrudan fal.run ile dene (360 saniyeye kadar bekle)
             direct_url = f"{FAL_RUN_BASE}/{model}"
             try:
-                response_data = HttpClient.post_json(direct_url, data=payload, headers=headers, timeout=90.0)
+                response_data = HttpClient.post_json(direct_url, data=payload, headers=headers, timeout=360.0)
             except HttpException as http_ex:
-                if http_ex.status_code in (405, 404, 400) or "queue" in str(http_ex).lower():
-                    logger.info("Direct call returned status, falling back to queue endpoint", status=http_ex.status_code)
+                # 405/404/400/504 veya Queue gerektiren durumlarda kuyruk uç noktasına geç
+                if http_ex.status_code in (405, 404, 400, 504, 408) or "queue" in str(http_ex).lower() or "timeout" in str(http_ex).lower():
+                    logger.info("Direct call status, falling back to queue endpoint", status=http_ex.status_code, error=str(http_ex))
                     queue_url = f"{FAL_QUEUE_BASE}/{model}"
-                    response_data = HttpClient.post_json(queue_url, data=payload, headers=headers, timeout=45.0)
+                    response_data = HttpClient.post_json(queue_url, data=payload, headers=headers, timeout=60.0)
+                else:
+                    raise
+            except Exception as ex:
+                if "timeout" in str(ex).lower() or "timed out" in str(ex).lower():
+                    logger.info("Direct call timed out, trying queue endpoint", error=str(ex))
+                    queue_url = f"{FAL_QUEUE_BASE}/{model}"
+                    response_data = HttpClient.post_json(queue_url, data=payload, headers=headers, timeout=60.0)
                 else:
                     raise
 
-            # 2. Kuyruk yanıtıysa bekle
+            # 2. Kuyruk yanıtıysa bekle (300 deneme * 2sn = 600 saniye / 10 dakika)
             if "status_url" in response_data or "request_id" in response_data:
                 status_url = response_data.get("status_url")
                 response_url = response_data.get("response_url")
@@ -353,14 +362,21 @@ class FalAIProvider(AIProvider):
                 logger.info("fal.ai queued request, polling status", request_id=req_id, status_url=status_url)
 
                 for attempt in range(MAX_POLL_ATTEMPTS):
-                    status_data = HttpClient.get_json(status_url, headers=headers, timeout=15.0)
+                    try:
+                        status_data = HttpClient.get_json(status_url, headers=headers, timeout=30.0)
+                    except Exception as poll_err:
+                        # Tekil ağ/gecikme hatasında hemen pes etme, bir sonraki döngüde tekrar dene
+                        logger.warning("Status polling transient error", attempt=attempt, error=str(poll_err))
+                        time.sleep(POLL_INTERVAL)
+                        continue
+
                     st = status_data.get("status", "")
 
                     if st == "COMPLETED":
                         if "images" in status_data:
                             response_data = status_data
                         else:
-                            response_data = HttpClient.get_json(response_url, headers=headers, timeout=30.0)
+                            response_data = HttpClient.get_json(response_url, headers=headers, timeout=60.0)
                         break
 
                     if st in ("FAILED", "CANCELLED"):
@@ -369,7 +385,7 @@ class FalAIProvider(AIProvider):
 
                     time.sleep(POLL_INTERVAL)
                 else:
-                    return AIResponse.error("fal.ai kuyruk yanıtı zaman aşımına uğradı.", code="TIMEOUT", provider=self.name)
+                    return AIResponse.error("fal.ai işlemi zaman aşımına uğradı (600 saniye aşıldı).", code="TIMEOUT", provider=self.name)
 
             # 3. Görselleri çıkar ve NumPy'a dönüştür
             images = self._extract_images_from_response(response_data, headers)

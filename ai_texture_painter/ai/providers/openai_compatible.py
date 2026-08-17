@@ -120,7 +120,7 @@ class OpenAICompatibleProvider(AIProvider):
                     "mask": ("mask.png", mask_png, "image/png"),
                 }
 
-                response_data = HttpClient.post_multipart(url, fields=fields, files=files, headers=headers, timeout=90.0)
+                response_data = HttpClient.post_multipart(url, fields=fields, files=files, headers=headers, timeout=360.0)
 
             # 2. Text-to-Image işlemi (/v1/images/generations)
             else:
@@ -135,7 +135,7 @@ class OpenAICompatibleProvider(AIProvider):
                     "response_format": "b64_json",
                 }
 
-                response_data = HttpClient.post_json(url, data=payload, headers=headers, timeout=90.0)
+                response_data = HttpClient.post_json(url, data=payload, headers=headers, timeout=360.0)
 
             # Dönen veriyi parse et
             images: List[np.ndarray] = []
