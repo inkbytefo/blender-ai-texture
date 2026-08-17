@@ -76,12 +76,6 @@ class AITextureProperties(bpy.types.PropertyGroup):
         description="AI üretimine stil ve içerik yönlendirmesi sağlayan referans görsel",
     )
 
-    use_3d_context: bpy.props.BoolProperty(
-        name="Auto 3D Context",
-        description="2D üretimde 3D Viewport görünümünü otomatik referans olarak kullanır ve yüzey yönünü algılar",
-        default=True,
-    )
-
     # ── Generation parametreleri ──
 
     strength: bpy.props.FloatProperty(

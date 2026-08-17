@@ -48,13 +48,3 @@ class TestResolutionManager:
         assert resized.shape == (32, 32, 4)
         np.testing.assert_allclose(resized, 0.5)
 
-    def test_square_bounding_box(self):
-        """Dikdörtgen bounding box'ın 1:1 kareye tamamlandığını doğrula."""
-        rect_bbox = (100, 200, 400, 200)  # x, y, w=400, h=200
-        sq_bbox = ResolutionManager.get_square_bounding_box(rect_bbox, max_w=1920, max_h=1080)
-
-        sx, sy, sw, sh = sq_bbox
-        assert sw == sh == 400
-        assert sx == 100
-        assert sy == 100  # 200 + 100 - 200 = 100
-

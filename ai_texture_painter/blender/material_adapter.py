@@ -77,12 +77,130 @@ class BlenderMaterialAdapter:
             if node.type == 'TEX_IMAGE' and node.image:
                 return node.image
 
-        return None
+    @staticmethod
+    def connect_normal_map_to_material(obj: bpy.types.Object, normal_image: bpy.types.Image, strength: float = 1.0) -> bool:
+        """Normal Map görselini aktif materyalin Principled BSDF node'una Tangent Space Normal Map ile bağlar."""
+        if not obj or not getattr(obj, "active_material", None):
+            return False
+
+        mat = obj.active_material
+        if not mat.use_nodes:
+            mat.use_nodes = True
+
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+
+        # 1. Renk uzayını DAİMA 'Non-Color' yap
+        try:
+            normal_image.colorspace_settings.name = 'Non-Color'
+        except Exception:
+            pass
+
+        # 2. Principled BSDF node'unu bul veya oluştur
+        principled = next((n for n in nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        if not principled:
+            principled = nodes.new(type='ShaderNodeBsdfPrincipled')
+            principled.location = (0, 0)
+            # Material Output'a bağla
+            output_node = next((n for n in nodes if n.type == 'OUTPUT_MATERIAL'), None)
+            if not output_node:
+                output_node = nodes.new(type='ShaderNodeOutputMaterial')
+                output_node.location = (300, 0)
+            links.new(principled.outputs.get("BSDF"), output_node.inputs.get("Surface"))
+
+        px, py = principled.location.x, principled.location.y
+
+        # 3. Normal Map node'u bul veya oluştur
+        normal_map_node = None
+        for n in nodes:
+            if n.type == 'NORMAL_MAP':
+                normal_map_node = n
+                break
+
+        if not normal_map_node:
+            normal_map_node = nodes.new(type='ShaderNodeNormalMap')
+            normal_map_node.space = 'TANGENT'
+            normal_map_node.location = (px - 250, py - 350)
+
+        normal_map_node.inputs["Strength"].default_value = strength
+
+        # 4. Image Texture node'u bul veya oluştur
+        tex_node = None
+        for link in normal_map_node.inputs["Color"].links:
+            if link.from_node.type == 'TEX_IMAGE':
+                tex_node = link.from_node
+                break
+
+        if not tex_node:
+            tex_node = nodes.new(type='ShaderNodeTexImage')
+            tex_node.location = (px - 550, py - 350)
+            tex_node.label = "AI Normal Map"
+
+        tex_node.image = normal_image
+
+        # 5. Bağlantıları kur: TexImage -> NormalMap -> Principled
+        links.new(tex_node.outputs.get("Color"), normal_map_node.inputs.get("Color"))
+        links.new(normal_map_node.outputs.get("Normal"), principled.inputs.get("Normal"))
+
+        logger.info("Connected Normal Map to material shader nodes", material=mat.name, image=normal_image.name)
+        return True
+
+    @staticmethod
+    def connect_roughness_map_to_material(obj: bpy.types.Object, roughness_image: bpy.types.Image) -> bool:
+        """Roughness görselini aktif materyalin Principled BSDF Roughness soketine bağlar."""
+        if not obj or not getattr(obj, "active_material", None):
+            return False
+
+        mat = obj.active_material
+        if not mat.use_nodes:
+            mat.use_nodes = True
+
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+
+        # 1. Renk uzayını 'Non-Color' yap
+        try:
+            roughness_image.colorspace_settings.name = 'Non-Color'
+        except Exception:
+            pass
+
+        # 2. Principled BSDF'i bul
+        principled = next((n for n in nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        if not principled:
+            principled = nodes.new(type='ShaderNodeBsdfPrincipled')
+            principled.location = (0, 0)
+
+        px, py = principled.location.x, principled.location.y
+
+        # 3. Image Texture node'u bul veya oluştur
+        tex_node = None
+        rough_sock = principled.inputs.get("Roughness")
+        if rough_sock and rough_sock.is_linked:
+            for link in rough_sock.links:
+                if link.from_node.type == 'TEX_IMAGE':
+                    tex_node = link.from_node
+                    break
+
+        if not tex_node:
+            tex_node = nodes.new(type='ShaderNodeTexImage')
+            tex_node.location = (px - 400, py - 100)
+            tex_node.label = "AI Roughness Map"
+
+        tex_node.image = roughness_image
+
+        # 4. Bağlantıyı kur: TexImage.Color -> Principled.Roughness
+        if rough_sock:
+            links.new(tex_node.outputs.get("Color"), rough_sock)
+
+        logger.info("Connected Roughness Map to material shader nodes", material=mat.name, image=roughness_image.name)
+        return True
 
     @staticmethod
     def force_viewport_redraw() -> None:
         """3D Viewport ve Image Editor alanlarının ekranını anında tazeler."""
-        for window in bpy.context.window_manager.windows:
-            for area in window.screen.areas:
-                if area.type in {'VIEW_3D', 'IMAGE_EDITOR', 'NODE_EDITOR'}:
-                    area.tag_redraw()
+        wm = getattr(bpy.context, "window_manager", None)
+        if wm:
+            for window in getattr(wm, "windows", []):
+                for area in getattr(window.screen, "areas", []):
+                    if area.type in {'VIEW_3D', 'IMAGE_EDITOR', 'NODE_EDITOR'}:
+                        area.tag_redraw()

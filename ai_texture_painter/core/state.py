@@ -83,6 +83,7 @@ class _StateManager:
     def __init__(self):
         self._state = TexturePainterState()
         self._lock = threading.Lock()
+        self._abort_event = threading.Event()
 
     @property
     def state(self) -> TexturePainterState:
@@ -91,6 +92,14 @@ class _StateManager:
         NOT: Yazma işlemleri için update() kullanın.
         """
         return self._state
+
+    def request_abort(self) -> None:
+        """Devam eden asenkron generation işlemini iptal etmek için bayrak koyar."""
+        self._abort_event.set()
+
+    def is_aborted(self) -> bool:
+        """İptal talebi olup olmadığını kontrol eder."""
+        return self._abort_event.is_set()
 
     def update(self, **kwargs) -> None:
         """State alanlarını thread-safe şekilde günceller.
@@ -109,6 +118,7 @@ class _StateManager:
     def reset(self) -> None:
         """State'i başlangıç değerlerine döndürür."""
         with self._lock:
+            self._abort_event.clear()
             self._state = TexturePainterState()
 
     def set_error(self, message: str, code: str = "UNKNOWN") -> None:
@@ -134,6 +144,7 @@ class _StateManager:
             provider: Provider adı
         """
         with self._lock:
+            self._abort_event.clear()
             self._state.status = StateStatus.GENERATING
             self._state.current_prompt = prompt
             self._state.current_operation = operation

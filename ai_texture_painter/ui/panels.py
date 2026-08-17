@@ -78,15 +78,11 @@ class AITEXTURE_PT_main_panel(bpy.types.Panel):
         if provider is None or provider.supports(Capability.NEGATIVE_PROMPT):
             layout.prop(props, "negative_prompt", text="Negative")
 
-        # ── Referans Görsel & 3D Context ──
+        # ── Referans Görsel (Reference Image) ──
         if provider is None or provider.supports(Capability.REFERENCE_IMAGE):
             layout.separator()
-            row_ctx = layout.row(align=True)
-            row_ctx.prop(props, "use_3d_context", text="Auto 3D Context (Model Bakışını Aktar)", icon='VIEW_CAMERA')
-            
-            if not props.use_3d_context:
-                layout.label(text="Reference Image (Manuel):", icon='IMAGE_DATA')
-                layout.template_ID(props, "reference_image", open="image.open")
+            layout.label(text="Reference Image (Opsiyonel):", icon='IMAGE_DATA')
+            layout.template_ID(props, "reference_image", open="image.open")
 
         layout.separator()
 
@@ -101,13 +97,13 @@ class AITEXTURE_PT_main_panel(bpy.types.Panel):
             row = box.row()
             row.label(text=f"Aktif: {active_img.name} ({active_img.size[0]}×{active_img.size[1]})", icon='CHECKMARK')
 
-            # Draw loop içinde hızlı durum kontrolü:
+            # Maske durum göstergesi
             obj = getattr(context, "active_object", None)
             mask_name = f"_ai_mask_{active_img.name}"
 
             row = box.row()
             if obj and obj.type == 'MESH' and obj.mode == 'EDIT':
-                row.label(text="Mask: 3D/UV Selection (Active in Edit Mode)", icon='RESTRICT_SELECT_OFF')
+                row.label(text="Mask: UV Face Selection (Edit Mode)", icon='RESTRICT_SELECT_OFF')
             elif mask_name in bpy.data.images:
                 row.label(text="Mask: Custom Paint Mask (_ai_mask_...)", icon='CHECKMARK')
             elif props.operation in {'FILL', 'REMOVE'}:
@@ -269,7 +265,20 @@ class AITEXTURE_PT_settings_panel(bpy.types.Panel):
         box_params.prop(props, "context_padding")
         box_params.prop(props, "feather_radius")
 
-        # ── 3. Bellek Yönetimi ──
+        # ── 3. PBR Doku Araçları (Normal & Roughness) ──
+        layout.separator()
+        box_pbr = layout.box()
+        box_pbr.label(text="PBR Material Suite (Saf NumPy)", icon='MATERIAL')
+        
+        row_pbr_main = box_pbr.row()
+        row_pbr_main.scale_y = 1.3
+        row_pbr_main.operator("ai_texture.generate_pbr_set", text="GENERATE PBR SET (Normal + Roughness)", icon='SHADING_RENDERED')
+
+        row_pbr = box_pbr.row(align=True)
+        row_pbr.operator("ai_texture.generate_normal", text="Normal Map", icon='NORMALS_FACE')
+        row_pbr.operator("ai_texture.generate_roughness", text="Roughness Map", icon='NODE_TEXTURE')
+
+        # ── 4. Bellek Yönetimi ──
         layout.separator()
         box_mem = layout.box()
         hist_mgr = get_history_manager()

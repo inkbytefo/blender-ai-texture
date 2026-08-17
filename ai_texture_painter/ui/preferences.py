@@ -174,13 +174,14 @@ class AITexturePreferences(bpy.types.AddonPreferences):
         name="Model",
         description="Google görsel üretim modeli",
         items=[
-            ('gemini-3.1-flash-image', "Nano Banana 2 (gemini-3.1-flash-image)", "Google'ın en güncel SOTA görsel üretim modeli (Önerilen)"),
-            ('gemini-3.1-flash-lite-image', "Nano Banana 2 Lite (gemini-3.1-flash-lite-image)", "Hızlı ve ekonomik görsel üretim modeli"),
-            ('gemini-3-pro-image', "Nano Banana Pro (gemini-3-pro-image)", "En yüksek detay ve profesyonel kalite"),
-            ('gemini-2.5-flash-image', "Nano Banana (gemini-2.5-flash-image)", "Kararlı görsel üretim modeli"),
+            ('imagen-3.0-generate-002', "Imagen 3 (imagen-3.0-generate-002)", "Google Imagen 3 resmi görsel üretim modeli (Önerilen)"),
+            ('gemini-3.1-flash-image', "Nano Banana 2 (gemini-3.1-flash-image)", "Google en güncel görsel modeli"),
+            ('gemini-3.1-flash-lite-image', "Nano Banana 2 Lite (gemini-3.1-flash-lite-image)", "Hızlı ve ekonomik görsel modeli"),
+            ('gemini-3-pro-image', "Nano Banana Pro (gemini-3-pro-image)", "Yüksek detay ve profesyonel kalite"),
+            ('gemini-2.5-flash-image', "Nano Banana (gemini-2.5-flash-image)", "Kararlı görsel modeli"),
             ('CUSTOM', "Custom Model ID (Özel Model)", "Özel Google model ID"),
         ],
-        default='gemini-3.1-flash-image',
+        default='imagen-3.0-generate-002',
     )
 
     gemini_custom_model: bpy.props.StringProperty(

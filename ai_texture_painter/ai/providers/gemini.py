@@ -48,6 +48,7 @@ class GeminiProvider(AIProvider):
 
     def get_models(self) -> List[str]:
         return [
+            "imagen-3.0-generate-002",
             "gemini-3.1-flash-image",
             "gemini-3.1-flash-lite-image",
             "gemini-3-pro-image",

@@ -109,27 +109,11 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
             crop_h, crop_w = h, w
             bbox = (0, 0, w, h)
 
-        # 7. Referans Görsel & 3D Context Yakalama
+        # 7. Referans Görsel
         ref_images = []
-        has_manual_ref = False
         if props.reference_image:
             ref_arr = BlenderImageAdapter.image_to_numpy(props.reference_image)
             ref_images.append(ref_arr)
-            has_manual_ref = True
-
-        # Eğer manuel referans verilmediyse ve Auto 3D Context açıksa: 3D modelin viewport görüntüsünü referans ekle
-        active_mesh_obj = getattr(context, "active_object", None)
-        if not has_manual_ref and getattr(props, "use_3d_context", True) and active_mesh_obj and active_mesh_obj.type == 'MESH':
-            from ..blender.viewport_adapter import BlenderViewportAdapter
-            vp_snapshot = BlenderViewportAdapter.capture_viewport_image(context)
-            if vp_snapshot is not None:
-                ref_images.append(vp_snapshot)
-                prompt_text = (
-                    f"Seamless UV texture for 3D object '{active_mesh_obj.name}' "
-                    f"(align placement and details according to the 3D viewport perspective shown in reference). "
-                    f"{prompt_text}"
-                )
-                logger.info("Injected 3D Viewport context into 2D generation request", object=active_mesh_obj.name)
 
         # 8. AI İstek (AIRequest) nesnesi oluştur
         req_w, req_h = ResolutionManager.find_best_generation_size(crop_w, crop_h)
@@ -234,6 +218,11 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
         thread.start()
 
         def _timer_callback() -> Optional[float]:
+            # Kullanıcı iptal ettiyse timer'ı derhal durdur
+            if state_mgr.is_aborted():
+                logger.info("Timer callback detected abort signal, terminating generation loop")
+                return None
+
             wm = getattr(bpy.context, "window_manager", None)
             if not bg_result["done"]:
                 cur_prog = state_mgr.state.progress
@@ -242,12 +231,17 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
                     state_mgr.update(progress=new_prog, progress_message=f"AI üretimi sürüyor... (%{int(new_prog * 100)})")
                     if wm:
                         wm.ai_texture_progress = new_prog
-                for area in bpy.context.screen.areas if bpy.context.screen else []:
-                    area.tag_redraw()
+                if wm:
+                    for window in getattr(wm, "windows", []):
+                        for area in getattr(window.screen, "areas", []):
+                            area.tag_redraw()
                 return 0.25
 
             if wm:
                 wm.ai_texture_progress = 1.0
+
+            if state_mgr.is_aborted():
+                return None
 
             if bg_result["error"]:
                 state_mgr.set_error(bg_result["error"], "ASYNC_ERROR")

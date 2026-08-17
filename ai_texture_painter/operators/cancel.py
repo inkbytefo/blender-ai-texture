@@ -33,7 +33,23 @@ class AITEXTURE_OT_cancel(bpy.types.Operator):
         return state.status in {StateStatus.PREVIEW, StateStatus.GENERATING, StateStatus.ERROR}
 
     def execute(self, context: bpy.types.Context):
-        state = get_state_manager().state
+        state_mgr = get_state_manager()
+        state = state_mgr.state
+
+        # Eğer generation devam ediyorsa asenkron abort sinyali gönder
+        if state.status == StateStatus.GENERATING:
+            state_mgr.request_abort()
+            state_mgr.reset()
+            wm = getattr(context, "window_manager", None)
+            if wm:
+                wm.ai_texture_progress = 0.0
+                wm.ai_texture_status = "İptal edildi"
+            for window in getattr(getattr(context, "window_manager", None), "windows", []):
+                for area in getattr(window.screen, "areas", []):
+                    area.tag_redraw()
+            self.report({'INFO'}, "AI üretimi iptal edildi.")
+            logger.info("Generation aborted by user")
+            return {'FINISHED'}
 
         # 1. Asıl orijinal görseli bul (preview görselini değil)
         base_image = None
@@ -51,16 +67,18 @@ class AITEXTURE_OT_cancel(bpy.types.Operator):
 
         # 2. Image Editor alanlarını önceden asıl görsele yönlendir (silinmeden önce)
         if base_image:
-            for area in getattr(getattr(context, "screen", None), "areas", []):
-                if area.type == 'IMAGE_EDITOR' and area.spaces.active:
-                    area.spaces.active.image = base_image
+            for window in getattr(getattr(context, "window_manager", None), "windows", []):
+                for area in getattr(window.screen, "areas", []):
+                    if area.type == 'IMAGE_EDITOR' and area.spaces.active:
+                        area.spaces.active.image = base_image
 
         # 3. İptal et, yedeği yükle ve preview görselini temizle
         ImageManager.cancel_and_restore(base_image)
 
         # 4. Viewport'u yenile
-        for area in getattr(getattr(context, "screen", None), "areas", []):
-            area.tag_redraw()
+        for window in getattr(getattr(context, "window_manager", None), "windows", []):
+            for area in getattr(window.screen, "areas", []):
+                area.tag_redraw()
 
         self.report({'INFO'}, "İşlem iptal edildi, orijinal doku korundu.")
         logger.info("Cancelled texture generation/preview")

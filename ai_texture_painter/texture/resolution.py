@@ -64,39 +64,6 @@ class ResolutionManager:
         return (cmin, rmin, box_w, box_h)
 
     @staticmethod
-    def get_square_bounding_box(
-        bbox: Tuple[int, int, int, int], max_w: int, max_h: int
-    ) -> Tuple[int, int, int, int]:
-        """Verilen bounding box'ı en-boy oranı 1:1 (kare) olacak şekilde genişletir.
-        
-        AI modelinin görseli esnetmesini ve perspektif distorsiyonunu önler.
-        """
-        x, y, w, h = bbox
-        side = max(w, h)
-        side = min(side, max_w, max_h)
-
-        cx = x + w / 2.0
-        cy = y + h / 2.0
-
-        new_x = int(round(cx - side / 2.0))
-        new_y = int(round(cy - side / 2.0))
-
-        if new_x < 0:
-            new_x = 0
-        elif new_x + side > max_w:
-            new_x = max(0, max_w - side)
-
-        if new_y < 0:
-            new_y = 0
-        elif new_y + side > max_h:
-            new_y = max(0, max_h - side)
-
-        actual_w = min(side, max_w - new_x)
-        actual_h = min(side, max_h - new_y)
-
-        return (new_x, new_y, actual_w, actual_h)
-
-    @staticmethod
     def find_best_generation_size(
         region_w: int, region_h: int
     ) -> Tuple[int, int]:
