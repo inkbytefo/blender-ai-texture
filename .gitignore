@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Blender
+*.blend1
+*.blend2
+
+# Secrets — ASLA commit etme
+.env
+*.key
+api_keys.json
+secrets.json
+
+# Cache
+.cache/
+*.npz
+
+# Temporary
+tmp/
+temp/
+scratch/
+
+# Build artifacts
+*.zip
+releases/
+
+# Wheels (development sırasında indirilir, CI'da yeniden indirilir)
+ai_texture_painter/wheels/*.whl
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/

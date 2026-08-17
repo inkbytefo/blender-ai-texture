@@ -1,0 +1,33 @@
+schema_version = "1.0.0"
+
+# Extension kimliği
+id = "ai_texture_painter"
+version = "0.1.0"
+name = "AI Texture Painter"
+tagline = "AI-powered texture editing directly in Blender"
+
+# Geliştirici bilgisi
+maintainer = "Inkbytefo <contact@inkbytefo.com>"
+
+# Extension tipi
+type = "add-on"
+
+# Blender uyumluluk
+blender_version_min = "5.0.0"
+
+# Lisans (SPDX format — Blender Extensions Platform gereksinimi)
+license = ["SPDX:GPL-3.0-or-later"]
+
+# Kategoriler
+tags = ["Paint", "Material", "UV"]
+
+# Harici Python bağımlılıkları
+# Phase 1'de harici dependency yok. Phase 4'te httpx eklenecek.
+# wheels = [
+#     "wheels/httpx-0.27.0-py3-none-any.whl",
+# ]
+
+# Permissions (kullanıcıya gösterilir)
+[permissions]
+network = "AI provider API'lerine HTTP istekleri göndermek için gerekli"
+files = "Texture dosyalarını okuma/yazma ve cache yönetimi için gerekli"
