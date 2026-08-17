@@ -14,10 +14,12 @@ import numpy as np
 import bpy
 
 from ..blender.image_adapter import BlenderImageAdapter
+from ..blender.selection_group import SelectionGroupResolver
 from ..texture.mask import MaskProcessor
 from ..texture.composite import TextureCompositor
 from ..texture.resolution import ResolutionManager
 from ..texture.image_manager import ImageManager
+from ..texture.island_packer import IslandPacker
 from ..ai.registry import get_active_provider
 from ..ai.request import AIRequest
 from ..ai.response import AIResponse
@@ -67,23 +69,68 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
         }
         operation = op_map.get(props.operation, AIOperation.FILL)
 
-        # 4. Akıllı Maskeyi hazırla (UV Selection > Custom Mask > Full)
-        mask, mask_desc = MaskProcessor.get_mask_from_context(context, base_image)
+        # 4. 3D Selection Group ve UV Island Analizi
+        active_obj = getattr(context, "active_object", None)
+        selection_group = None
+        packing_manifest = None
+        is_packed_mode = False
 
-        if mask is None:
-            if operation in {AIOperation.FILL, AIOperation.REMOVE}:
-                self.report(
-                    {'WARNING'},
-                    "Fill/Remove için lütfen Edit Mode'da bir yüzey seçin veya bir maske çizin!"
-                )
-                # Yedek merkez maske
-                logger.info("No selection found, generating fallback center circular mask")
-                y_grid, x_grid = np.ogrid[:h, :w]
-                cy, cx = h / 2, w / 2
-                radius = min(h, w) / 4
-                mask = ((x_grid - cx) ** 2 + (y_grid - cy) ** 2 <= radius ** 2).astype(np.float32)
-            else:
-                mask = np.ones((h, w), dtype=np.float32)
+        if active_obj and active_obj.type == 'MESH':
+            selection_group = SelectionGroupResolver.resolve_from_mesh(active_obj)
+
+        pad_val = getattr(props, "context_padding", 32) if operation != AIOperation.GENERATE else 0
+
+        # Eğer birden fazla UV adacığı varsa veya 3D seçim mevcutsa Island Packing kullan
+        if selection_group and selection_group.island_count > 1:
+            is_packed_mode = True
+            mask_desc = f"3D Selection Group ({selection_group.island_count} UV Islands, {selection_group.total_faces} Faces)"
+            req_w, req_h = ResolutionManager.find_best_generation_size(1024, 1024)
+            source_scaled, mask_scaled, packing_manifest = IslandPacker.pack_islands(
+                base_image=original_pixels,
+                islands=selection_group.islands,
+                target_canvas_size=(req_w, req_h),
+                padding=pad_val,
+                bleed_pixels=2,
+            )
+            mask = None  # Packed mode handles masking per island
+            cropped_original = source_scaled
+            cropped_mask = mask_scaled
+            crop_w, crop_h = req_w, req_h
+            bbox = (0, 0, w, h)
+        else:
+            # 4b. Klasik Akıllı Maske (UV Selection > Custom Mask > Full)
+            mask, mask_desc = MaskProcessor.get_mask_from_context(context, base_image)
+
+            if mask is None:
+                if operation in {AIOperation.FILL, AIOperation.REMOVE}:
+                    self.report(
+                        {'WARNING'},
+                        "Fill/Remove için lütfen Edit Mode'da bir yüzey seçin veya bir maske çizin!"
+                    )
+                    # Yedek merkez maske
+                    logger.info("No selection found, generating fallback center circular mask")
+                    y_grid, x_grid = np.ogrid[:h, :w]
+                    cy, cx = h / 2, w / 2
+                    radius = min(h, w) / 4
+                    mask = ((x_grid - cx) ** 2 + (y_grid - cy) ** 2 <= radius ** 2).astype(np.float32)
+                else:
+                    mask = np.ones((h, w), dtype=np.float32)
+
+            # Maskeli alanın bounding box'ını bul ve kırp (Photoshop Context Padding)
+            bbox = ResolutionManager.get_mask_bounding_box(mask, padding=pad_val)
+            cropped_original = ResolutionManager.crop_region(original_pixels, bbox)
+            cropped_mask = ResolutionManager.crop_region(mask, bbox)
+            crop_h, crop_w = cropped_original.shape[:2]
+
+            if crop_h <= 0 or crop_w <= 0:
+                cropped_original = original_pixels.copy()
+                cropped_mask = mask.copy()
+                crop_h, crop_w = h, w
+                bbox = (0, 0, w, h)
+
+            req_w, req_h = ResolutionManager.find_best_generation_size(crop_w, crop_h)
+            source_scaled = ResolutionManager.resize_image(cropped_original, req_w, req_h)
+            mask_scaled = ResolutionManager.resize_image(cropped_mask, req_w, req_h)
 
         # 5. Prompt optimizasyonu (Fill/Remove için boş bırakıldıysa otomatik tanımla)
         prompt_text = props.prompt.strip()
@@ -96,30 +143,13 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
                 self.report({'WARNING'}, "Lütfen ne üretmek istediğinizi Prompt alanına yazın!")
                 return {'CANCELLED'}
 
-        # 6. Maskeli alanın bounding box'ını bul ve kırp (Photoshop Context Padding)
-        pad_val = getattr(props, "context_padding", 32) if operation != AIOperation.GENERATE else 0
-        bbox = ResolutionManager.get_mask_bounding_box(mask, padding=pad_val)
-        cropped_original = ResolutionManager.crop_region(original_pixels, bbox)
-        cropped_mask = ResolutionManager.crop_region(mask, bbox)
-        crop_h, crop_w = cropped_original.shape[:2]
-
-        if crop_h <= 0 or crop_w <= 0:
-            cropped_original = original_pixels.copy()
-            cropped_mask = mask.copy()
-            crop_h, crop_w = h, w
-            bbox = (0, 0, w, h)
-
-        # 7. Referans Görsel
+        # 6. Referans Görsel
         ref_images = []
         if props.reference_image:
             ref_arr = BlenderImageAdapter.image_to_numpy(props.reference_image)
             ref_images.append(ref_arr)
 
-        # 8. AI İstek (AIRequest) nesnesi oluştur
-        req_w, req_h = ResolutionManager.find_best_generation_size(crop_w, crop_h)
-        source_scaled = ResolutionManager.resize_image(cropped_original, req_w, req_h)
-        mask_scaled = ResolutionManager.resize_image(cropped_mask, req_w, req_h)
-
+        # 7. AI İstek (AIRequest) nesnesi oluştur
         request = AIRequest(
             operation=operation,
             prompt=prompt_text,
@@ -132,6 +162,8 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
             seed=props.seed if not props.random_seed else -1,
             variation_count=props.variation_count,
             strength=props.strength,
+            selection_context=selection_group.name if selection_group else "",
+            island_count=selection_group.island_count if selection_group else 0,
         )
 
         errors = request.validate()
@@ -153,17 +185,25 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
 
             composited_variations: List[np.ndarray] = []
             for gen_img in response.images:
-                # 1. AI çıktısını kırpılan bağlam boyutuna ölçekle
-                gen_cropped = ResolutionManager.resize_image(gen_img, crop_w, crop_h)
-                # 2. Kırpılan bölge içinde maskeli feather kompozitleme yap (Photoshop Generative Fill)
-                comp_cropped = TextureCompositor.composite_with_feather(
-                    original=cropped_original,
-                    generated=gen_cropped,
-                    mask=cropped_mask,
-                    feather_radius=feather_rad,
-                )
-                # 3. Birleştirilmiş bölgeyi orijinal dokudaki tam konumuna yerleştir
-                comp = ResolutionManager.place_region(original_pixels, comp_cropped, bbox)
+                if is_packed_mode and packing_manifest:
+                    # 1a. Paketlenmiş AI tuvalinden her UV adacığını tersine dönüştürerek yerleştir
+                    comp = IslandPacker.unpack_and_composite(
+                        packed_generated=gen_img,
+                        manifest=packing_manifest,
+                        original_base=original_pixels,
+                        feather_radius=feather_rad,
+                    )
+                else:
+                    # 1b. Klasik kırpılmış bölge kompozitleme
+                    gen_cropped = ResolutionManager.resize_image(gen_img, crop_w, crop_h)
+                    comp_cropped = TextureCompositor.composite_with_feather(
+                        original=cropped_original,
+                        generated=gen_cropped,
+                        mask=cropped_mask,
+                        feather_radius=feather_rad,
+                    )
+                    comp = ResolutionManager.place_region(original_pixels, comp_cropped, bbox)
+
                 composited_variations.append(comp)
 
             state_mgr.update(
@@ -171,6 +211,7 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
                 selected_variation=0,
             )
             state_mgr.finish_generation()
+
 
             preview_img = ImageManager.create_or_update_preview(target_image, composited_variations[0])
 

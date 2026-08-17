@@ -39,6 +39,9 @@ class AIRequest:
     strength: float = 0.75                    # 0.0 - 1.0
     seamless: bool = False
     preserve_unmasked: bool = True
+    selection_context: str = ""                # 3D parça adı/bağlamı (ör. "Slider", "Barrel")
+    island_count: int = 0                     # İşlenen UV adacık sayısı
+
 
     def validate(self) -> List[str]:
         """İstek parametrelerinin geçerliliğini denetler.

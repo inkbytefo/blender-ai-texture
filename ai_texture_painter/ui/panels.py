@@ -97,13 +97,22 @@ class AITEXTURE_PT_main_panel(bpy.types.Panel):
             row = box.row()
             row.label(text=f"Aktif: {active_img.name} ({active_img.size[0]}×{active_img.size[1]})", icon='CHECKMARK')
 
-            # Maske durum göstergesi
+            # Maske ve 3D Selection durum göstergesi
             obj = getattr(context, "active_object", None)
             mask_name = f"_ai_mask_{active_img.name}"
 
             row = box.row()
             if obj and obj.type == 'MESH' and obj.mode == 'EDIT':
-                row.label(text="Mask: UV Face Selection (Edit Mode)", icon='RESTRICT_SELECT_OFF')
+                from ..blender.selection_group import SelectionGroupResolver
+                sg = SelectionGroupResolver.resolve_from_mesh(obj)
+                if sg and sg.island_count > 1:
+                    row.label(text=f"3D Group: {sg.island_count} UV Islands ({sg.total_faces} Faces)", icon='STICKY_UVS_LOC')
+                    sub_row = box.row()
+                    sub_row.label(text="Auto Island Packing Active", icon='PACKAGE')
+                elif sg and sg.island_count == 1:
+                    row.label(text=f"3D Group: 1 UV Island ({sg.total_faces} Faces)", icon='STICKY_UVS_LOC')
+                else:
+                    row.label(text="Mask: UV Face Selection (Edit Mode)", icon='RESTRICT_SELECT_OFF')
             elif mask_name in bpy.data.images:
                 row.label(text="Mask: Custom Paint Mask (_ai_mask_...)", icon='CHECKMARK')
             elif props.operation in {'FILL', 'REMOVE'}:
