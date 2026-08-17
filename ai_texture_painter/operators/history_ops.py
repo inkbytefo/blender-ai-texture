@@ -39,6 +39,8 @@ class AITEXTURE_OT_undo(bpy.types.Operator):
         base_image = BlenderImageAdapter.get_active_image(context)
         if base_image:
             BlenderImageAdapter.numpy_to_image(entry.pixels, base_image)
+            from ..blender.material_adapter import BlenderMaterialAdapter
+            BlenderMaterialAdapter.force_viewport_redraw()
             self.report({'INFO'}, f"Geri alındı: {entry.label}")
             logger.info("Texture state reverted", label=entry.label)
 
@@ -68,6 +70,8 @@ class AITEXTURE_OT_redo(bpy.types.Operator):
         base_image = BlenderImageAdapter.get_active_image(context)
         if base_image:
             BlenderImageAdapter.numpy_to_image(entry.pixels, base_image)
+            from ..blender.material_adapter import BlenderMaterialAdapter
+            BlenderMaterialAdapter.force_viewport_redraw()
             self.report({'INFO'}, f"Tekrar uygulandı: {entry.label}")
             logger.info("Texture state reapplied", label=entry.label)
 

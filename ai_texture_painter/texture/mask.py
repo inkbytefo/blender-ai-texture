@@ -83,8 +83,10 @@ class MaskProcessor:
     @staticmethod
     def dilate_mask(mask: np.ndarray, iterations: int = 1) -> np.ndarray:
         """Saf NumPy ile maskeyi genişletir (Max pooling filter)."""
+        if iterations <= 0:
+            return mask.copy()
         res = mask.copy()
-        for _ in range(max(1, iterations)):
+        for _ in range(iterations):
             pad = np.pad(res, 1, mode='edge')
             shifts = [
                 pad[:-2, :-2], pad[:-2, 1:-1], pad[:-2, 2:],
@@ -97,8 +99,10 @@ class MaskProcessor:
     @staticmethod
     def erode_mask(mask: np.ndarray, iterations: int = 1) -> np.ndarray:
         """Saf NumPy ile maskeyi daraltır (Min pooling filter)."""
+        if iterations <= 0:
+            return mask.copy()
         res = mask.copy()
-        for _ in range(max(1, iterations)):
+        for _ in range(iterations):
             pad = np.pad(res, 1, mode='edge')
             shifts = [
                 pad[:-2, :-2], pad[:-2, 1:-1], pad[:-2, 2:],
@@ -122,14 +126,13 @@ class MaskProcessor:
         """
         w, h = base_image.size[0], base_image.size[1]
 
-        # 1. 3D Model / UV Edit Mode seçili yüzey kontrolü
+        # 1. 3D Model / UV Edit Mode seçili yüzey kontrolü (Sadece EDIT modundayken öncelikli)
         obj = getattr(context, "active_object", None)
-        if obj and obj.type == 'MESH':
+        if obj and obj.type == 'MESH' and getattr(obj, "mode", None) == 'EDIT':
             from ..blender.uv_adapter import BlenderUVAdapter
             uv_res = BlenderUVAdapter.create_mask_from_uv_selection(obj, width=w, height=h, bleed_pixels=3)
             if uv_res is not None:
                 mask_arr, face_cnt = uv_res
-                # Eğer yüzey seçiliyse (ve tüm yüzeyler seçili değilse)
                 total_faces = len(obj.data.polygons) if obj.data else 0
                 if 0 < face_cnt < total_faces:
                     return mask_arr, f"UV Selection ({face_cnt} Face{'s' if face_cnt > 1 else ''})"
@@ -142,5 +145,15 @@ class MaskProcessor:
         if mask_img:
             raw = BlenderImageAdapter.image_to_numpy(mask_img)
             return MaskProcessor.normalize_mask(raw), "Custom Mask"
+
+        # 3. Eğer Edit modunda değilse ama yine de UV seçimi varsa fallback kontrolü
+        if obj and obj.type == 'MESH':
+            from ..blender.uv_adapter import BlenderUVAdapter
+            uv_res = BlenderUVAdapter.create_mask_from_uv_selection(obj, width=w, height=h, bleed_pixels=3)
+            if uv_res is not None:
+                mask_arr, face_cnt = uv_res
+                total_faces = len(obj.data.polygons) if obj.data else 0
+                if 0 < face_cnt < total_faces:
+                    return mask_arr, f"UV Selection ({face_cnt} Face{'s' if face_cnt > 1 else ''})"
 
         return None, "None"

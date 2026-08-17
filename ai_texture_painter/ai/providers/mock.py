@@ -93,25 +93,31 @@ class MockProvider(AIProvider):
             noise = rng.uniform(0.0, 0.4, (h, w))
             pattern = np.clip(wave * 0.7 + noise * 0.3, 0.0, 1.0)
 
-            # Renk paleti seçimi (prompt içeriğine göre basit renk tonlama)
+            # Renk paleti ve stil seçimi (prompt içeriğine göre belirgin renkler ve desenler)
             prompt_lower = request.prompt.lower()
-            if "leather" in prompt_lower or "deri" in prompt_lower:
-                base_color = np.array([0.25, 0.15, 0.08], dtype=np.float32)
+            if "gold" in prompt_lower or "altin" in prompt_lower or "altın" in prompt_lower:
+                base_color = np.array([0.95, 0.78, 0.20], dtype=np.float32)
+            elif "urban" in prompt_lower or "camo" in prompt_lower:
+                base_color = np.array([0.70, 0.45, 0.25], dtype=np.float32)
+            elif "cyber" in prompt_lower or "neon" in prompt_lower or "scifi" in prompt_lower or "sci-fi" in prompt_lower:
+                base_color = np.array([0.10, 0.85, 0.95], dtype=np.float32)
+            elif "fire" in prompt_lower or "red" in prompt_lower or "kirmizi" in prompt_lower or "kırmızı" in prompt_lower:
+                base_color = np.array([0.90, 0.20, 0.15], dtype=np.float32)
+            elif "leather" in prompt_lower or "deri" in prompt_lower:
+                base_color = np.array([0.45, 0.25, 0.12], dtype=np.float32)
             elif "wood" in prompt_lower or "ahsap" in prompt_lower or "ahşap" in prompt_lower:
-                base_color = np.array([0.45, 0.28, 0.12], dtype=np.float32)
-            elif "metal" in prompt_lower or "gold" in prompt_lower:
-                base_color = np.array([0.65, 0.55, 0.25], dtype=np.float32)
-            elif "stone" in prompt_lower or "rock" in prompt_lower or "tas" in prompt_lower:
-                base_color = np.array([0.40, 0.40, 0.42], dtype=np.float32)
+                base_color = np.array([0.65, 0.38, 0.18], dtype=np.float32)
+            elif "metal" in prompt_lower or "steel" in prompt_lower:
+                base_color = np.array([0.80, 0.82, 0.88], dtype=np.float32)
             else:
-                # Rastgele zengin ton
-                base_color = rng.uniform(0.2, 0.8, 3).astype(np.float32)
+                # Rastgele zengin ve parlak tonlar
+                base_color = rng.uniform(0.4, 0.95, 3).astype(np.float32)
 
-            rgb = np.clip(pattern[..., np.newaxis] * base_color * 2.0, 0.0, 1.0)
+            rgb = np.clip(pattern[..., np.newaxis] * base_color * 1.5, 0.0, 1.0)
             alpha = np.ones((h, w, 1), dtype=np.float32)
             generated_img = np.concatenate([rgb, alpha], axis=-1).astype(np.float32)
 
-            # Eğer inpaint veya image-to-image ise ve kaynak görsel varsa strength ile birleştir
+            # Eğer inpaint veya image-to-image ise ve kaynak görsel varsa strength ile harmanla
             if request.source_image is not None and request.source_image.shape[:2] == (h, w):
                 strength = float(request.strength)
                 generated_img = (

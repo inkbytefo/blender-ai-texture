@@ -106,6 +106,16 @@ class HistoryManager:
         self._index = -1
         logger.info("History cleared")
 
+    @property
+    def count(self) -> int:
+        """Geçmişteki adım sayısını döndürür."""
+        return len(self._stack)
+
+    @property
+    def _history(self) -> List[HistoryEntry]:
+        """Geriye dönük uyumluluk için stack referansı."""
+        return self._stack
+
     def get_memory_usage_mb(self) -> float:
         """Geçmiş yığınının RAM'de kapladığı toplam boyutu (MB) hesaplar."""
         total_bytes = sum(entry.pixels.nbytes for entry in self._stack)

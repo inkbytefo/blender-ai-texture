@@ -78,25 +78,30 @@ class AITEXTURE_PT_main_panel(bpy.types.Panel):
         if provider is None or provider.supports(Capability.NEGATIVE_PROMPT):
             layout.prop(props, "negative_prompt", text="Negative")
 
-        # ── Referans Görsel (Reference Image) ──
+        # ── Referans Görsel & 3D Context ──
         if provider is None or provider.supports(Capability.REFERENCE_IMAGE):
             layout.separator()
-            layout.label(text="Reference Image (Opsiyonel):", icon='IMAGE_DATA')
-            layout.template_ID(props, "reference_image", open="image.open")
+            row_ctx = layout.row(align=True)
+            row_ctx.prop(props, "use_3d_context", text="Auto 3D Context (Model Bakışını Aktar)", icon='VIEW_CAMERA')
+            
+            if not props.use_3d_context:
+                layout.label(text="Reference Image (Manuel):", icon='IMAGE_DATA')
+                layout.template_ID(props, "reference_image", open="image.open")
 
         layout.separator()
 
-        # ── Aktif image & Akıllı Mask durumu (Ultra Hızlı UI Kontrolü) ──
+        # ── Aktif image & Akıllı Mask durumu ──
         box = layout.box()
         active_img = BlenderImageAdapter.get_active_image(context)
 
+        box.label(text="Hedef Doku (Target Texture):", icon='IMAGE_DATA')
+        box.template_ID(props, "target_image", open="image.open")
+
         if active_img:
             row = box.row()
-            row.label(text=f"Texture: {active_img.name}", icon='IMAGE_DATA')
-            row = box.row()
-            row.label(text=f"Size: {active_img.size[0]} × {active_img.size[1]}", icon='TEXTURE')
+            row.label(text=f"Aktif: {active_img.name} ({active_img.size[0]}×{active_img.size[1]})", icon='CHECKMARK')
 
-            # Draw loop içinde ağır rasterizasyon yapmadan O(1) hızlı durum kontrolü:
+            # Draw loop içinde hızlı durum kontrolü:
             obj = getattr(context, "active_object", None)
             mask_name = f"_ai_mask_{active_img.name}"
 
@@ -110,7 +115,7 @@ class AITEXTURE_PT_main_panel(bpy.types.Panel):
             else:
                 row.label(text="Mask: Full Image (Tüm Doku)", icon='INFO')
         else:
-            box.label(text="Aktif texture yok — bir görsel açın", icon='ERROR')
+            box.label(text="Aktif texture yok — bir görsel seçin", icon='ERROR')
 
         layout.separator()
 
@@ -260,14 +265,15 @@ class AITEXTURE_PT_settings_panel(bpy.types.Panel):
         if provider is None or provider.supports(Capability.VARIATIONS):
             box_params.prop(props, "variation_count")
 
-        # Feather
+        # Context Padding (Photoshop Generative Fill) & Feather
+        box_params.prop(props, "context_padding")
         box_params.prop(props, "feather_radius")
 
         # ── 3. Bellek Yönetimi ──
         layout.separator()
         box_mem = layout.box()
         hist_mgr = get_history_manager()
-        hist_count = len(hist_mgr._history)
+        hist_count = len(getattr(hist_mgr, "_stack", []))
         box_mem.label(text=f"History RAM: {hist_count} Adım", icon='INFO')
         row_clean = box_mem.row(align=True)
         row_clean.operator("ai_texture.clear_history", text="Clear History RAM", icon='TRASH')

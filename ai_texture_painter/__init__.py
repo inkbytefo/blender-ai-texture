@@ -17,7 +17,16 @@ from .ui.panels import (
     AITEXTURE_PT_results_panel,
     AITEXTURE_PT_settings_panel,
 )
+from .ui.panels_3d import (
+    AITEXTURE_PT_3d_main_panel,
+    AITEXTURE_PT_3d_results_panel,
+    AITEXTURE_PT_3d_settings_panel,
+)
 from .operators.generate import AITEXTURE_OT_generate
+from .operators.generate_viewport import (
+    AITEXTURE_OT_paint_from_view,
+    AITEXTURE_OT_align_view,
+)
 from .operators.apply import AITEXTURE_OT_apply
 from .operators.cancel import AITEXTURE_OT_cancel
 from .operators.select_variation import AITEXTURE_OT_select_variation
@@ -47,8 +56,10 @@ _classes = (
     # Preferences
     AITexturePreferences,
 
-    # Operators
+    # Operators (2D & 3D)
     AITEXTURE_OT_generate,
+    AITEXTURE_OT_paint_from_view,
+    AITEXTURE_OT_align_view,
     AITEXTURE_OT_apply,
     AITEXTURE_OT_cancel,
     AITEXTURE_OT_select_variation,
@@ -58,10 +69,15 @@ _classes = (
     AITEXTURE_OT_show_error,
     AITEXTURE_OT_uninstall,
 
-    # Panels (parent önce, child'lar sonra)
+    # Image Editor Panels
     AITEXTURE_PT_main_panel,
     AITEXTURE_PT_results_panel,
     AITEXTURE_PT_settings_panel,
+
+    # 3D Viewport Panels
+    AITEXTURE_PT_3d_main_panel,
+    AITEXTURE_PT_3d_results_panel,
+    AITEXTURE_PT_3d_settings_panel,
 )
 
 

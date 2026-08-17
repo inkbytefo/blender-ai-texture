@@ -84,7 +84,7 @@ def numpy_to_png_bytes(array: np.ndarray, flip_y: bool = True) -> bytes:
 
     # Blender bottom-up -> PNG top-down dikey çevirme
     if flip_y:
-        arr = arr[::-1, :, :].copy()
+        arr = arr[::-1, ...].copy()
 
     h, w = arr.shape[:2]
 

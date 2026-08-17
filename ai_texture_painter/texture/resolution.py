@@ -64,6 +64,39 @@ class ResolutionManager:
         return (cmin, rmin, box_w, box_h)
 
     @staticmethod
+    def get_square_bounding_box(
+        bbox: Tuple[int, int, int, int], max_w: int, max_h: int
+    ) -> Tuple[int, int, int, int]:
+        """Verilen bounding box'ı en-boy oranı 1:1 (kare) olacak şekilde genişletir.
+        
+        AI modelinin görseli esnetmesini ve perspektif distorsiyonunu önler.
+        """
+        x, y, w, h = bbox
+        side = max(w, h)
+        side = min(side, max_w, max_h)
+
+        cx = x + w / 2.0
+        cy = y + h / 2.0
+
+        new_x = int(round(cx - side / 2.0))
+        new_y = int(round(cy - side / 2.0))
+
+        if new_x < 0:
+            new_x = 0
+        elif new_x + side > max_w:
+            new_x = max(0, max_w - side)
+
+        if new_y < 0:
+            new_y = 0
+        elif new_y + side > max_h:
+            new_y = max(0, max_h - side)
+
+        actual_w = min(side, max_w - new_x)
+        actual_h = min(side, max_h - new_y)
+
+        return (new_x, new_y, actual_w, actual_h)
+
+    @staticmethod
     def find_best_generation_size(
         region_w: int, region_h: int
     ) -> Tuple[int, int]:
@@ -79,8 +112,20 @@ class ResolutionManager:
         image: np.ndarray, bbox: Tuple[int, int, int, int]
     ) -> np.ndarray:
         """Verilen bounding box (x, y, w, h) alanını kırpar."""
+        img_h, img_w = image.shape[:2]
+        if img_h == 0 or img_w == 0:
+            return image.copy()
+
         x, y, w, h = bbox
-        return image[y : y + h, x : x + w].copy()
+        x = max(0, min(img_w - 1, x))
+        y = max(0, min(img_h - 1, y))
+        w = max(1, min(img_w - x, w))
+        h = max(1, min(img_h - y, h))
+
+        cropped = image[y : y + h, x : x + w]
+        if cropped.shape[0] == 0 or cropped.shape[1] == 0:
+            return image.copy()
+        return cropped.copy()
 
     @staticmethod
     def place_region(
@@ -89,7 +134,13 @@ class ResolutionManager:
         bbox: Tuple[int, int, int, int],
     ) -> np.ndarray:
         """Kırpılmış veya üretilmiş bölgeyi hedef imajın tam konumuna yerleştirir."""
+        img_h, img_w = target.shape[:2]
         x, y, w, h = bbox
+        x = max(0, min(img_w - 1, x))
+        y = max(0, min(img_h - 1, y))
+        w = max(1, min(img_w - x, w))
+        h = max(1, min(img_h - y, h))
+
         result = target.copy()
 
         # Boyut uyuşmazlığı varsa bölgeyi (h, w) boyutuna resize et
@@ -113,6 +164,11 @@ class ResolutionManager:
         Returns:
             (new_h, new_w, C) boyutlandırılmış dizi
         """
+        if image is None or image.size == 0 or image.shape[0] == 0 or image.shape[1] == 0:
+            if image is not None and image.ndim == 3:
+                return np.zeros((new_h, new_w, image.shape[2]), dtype=np.float32)
+            return np.zeros((new_h, new_w), dtype=np.float32)
+
         old_h, old_w = image.shape[:2]
         if old_h == new_h and old_w == new_w:
             return image.copy()

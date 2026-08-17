@@ -60,12 +60,26 @@ class AITextureProperties(bpy.types.PropertyGroup):
         maxlen=500,
     )
 
+    # ── Hedef Doku (Target Texture) ──
+
+    target_image: bpy.props.PointerProperty(
+        name="Target Texture",
+        type=bpy.types.Image,
+        description="Boyanacak hedef doku (Boş bırakılırsa Base Color dokusu otomatik seçilir)",
+    )
+
     # ── Referans Görsel (Reference Conditioning) ──
 
     reference_image: bpy.props.PointerProperty(
         name="Reference Image",
         type=bpy.types.Image,
         description="AI üretimine stil ve içerik yönlendirmesi sağlayan referans görsel",
+    )
+
+    use_3d_context: bpy.props.BoolProperty(
+        name="Auto 3D Context",
+        description="2D üretimde 3D Viewport görünümünü otomatik referans olarak kullanır ve yüzey yönünü algılar",
+        default=True,
     )
 
     # ── Generation parametreleri ──
@@ -108,7 +122,15 @@ class AITextureProperties(bpy.types.PropertyGroup):
         min=0,
     )
 
-    # ── Mask parametreleri ──
+    # ── Mask & Context parametreleri ──
+
+    context_padding: bpy.props.IntProperty(
+        name="Context Padding",
+        description="Seçili alanın etrafından AI'a bağlam olarak verilecek piksel payı (Photoshop Generative Fill)",
+        default=32,
+        min=0,
+        max=512,
+    )
 
     feather_radius: bpy.props.IntProperty(
         name="Feather",

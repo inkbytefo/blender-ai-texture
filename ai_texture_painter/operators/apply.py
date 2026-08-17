@@ -61,26 +61,36 @@ class AITEXTURE_OT_apply(bpy.types.Operator):
 
         preview_pixels = BlenderImageAdapter.image_to_numpy(preview_img)
 
-        # 2. Mevcut orijinal durumu HistoryManager yığınına kaydet
-        if state.original_pixels is not None:
-            get_history_manager().push(
-                label=f"AI {state.current_operation}: {state.current_prompt[:25]}",
+        # 2. HistoryManager yığınına kaydet:
+        # Eğer geçmiş boşsa önce orijinal temel durumu kaydet, ardından yeni uygulanan durumu kaydet.
+        hist_mgr = get_history_manager()
+        if hist_mgr.count == 0 and state.original_pixels is not None:
+            hist_mgr.push(
+                label="Original Texture",
                 pixels=state.original_pixels,
-                operation=state.current_operation,
-                prompt=state.current_prompt,
+                operation="ORIGINAL",
+                prompt="",
             )
 
+        hist_mgr.push(
+            label=f"AI {state.current_operation}: {state.current_prompt[:25]}",
+            pixels=preview_pixels,
+            operation=state.current_operation,
+            prompt=state.current_prompt,
+        )
+
         # 3. Image Editor alanlarını önceden asıl görsele yönlendir
-        for area in getattr(getattr(context, "screen", None), "areas", []):
-            if area.type == 'IMAGE_EDITOR' and area.spaces.active:
-                area.spaces.active.image = base_image
+        for window in getattr(getattr(bpy.context, "window_manager", None), "windows", []):
+            for area in getattr(window.screen, "areas", []):
+                if area.type == 'IMAGE_EDITOR' and area.spaces.active:
+                    area.spaces.active.image = base_image
 
         # 4. Orijinal dokuya uygula ve preview imajını sil
         ImageManager.apply_to_original(base_image, preview_pixels)
 
-        # 5. Viewport'u yenile
-        for area in getattr(getattr(context, "screen", None), "areas", []):
-            area.tag_redraw()
+        # 5. Viewport ve materyal ekranını anında yenile
+        from ..blender.material_adapter import BlenderMaterialAdapter
+        BlenderMaterialAdapter.force_viewport_redraw()
 
         self.report({'INFO'}, f"Texture uygulandı ve geçmişe kaydedildi: {base_image.name}")
         logger.info("Applied texture changes and saved history entry", image=base_image.name)

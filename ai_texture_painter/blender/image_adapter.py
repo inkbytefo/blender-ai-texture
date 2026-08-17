@@ -22,29 +22,37 @@ class BlenderImageAdapter:
 
     @staticmethod
     def get_active_image(context: bpy.types.Context) -> Optional[bpy.types.Image]:
-        """Context'ten aktif Image Editor görselini veya aktif texture'ı bulur.
+        """Context'ten veya aktif 3D materyalden boyanacak hedef dokuyu bulur.
 
-        Args:
-            context: Blender context nesnesi
-
-        Returns:
-            bpy.types.Image veya None
+        Öncelik:
+        1. Kullanıcının panelde açıkça seçtiği target_image (eğer varsa)
+        2. Aktif 3D Mesh materyalinin Base Color / Albedo dokusu (Principled BSDF)
+        3. Aktif Image Editor alanı space_data.image
+        4. Aktif materyaldeki diğer TEX_IMAGE dokuları
         """
-        # 1. Image Editor alanı içindeyse doğrudan space_data'dan al
+        # 1. Kullanıcının açıkça seçtiği hedef doku varsa önceliklidir
+        scene = getattr(context, "scene", None)
+        if scene and hasattr(scene, "ai_texture"):
+            tgt = getattr(scene.ai_texture, "target_image", None)
+            if tgt:
+                return tgt
+
+        # 2. 3D Model / Aktif Mesh üzerinden Base Color (Albedo) dokusunu bul
+        obj = getattr(context, "active_object", None)
+        if obj and obj.type == 'MESH':
+            from .material_adapter import BlenderMaterialAdapter
+            base_col = BlenderMaterialAdapter.get_base_color_image(obj)
+            if base_col:
+                return base_col
+
+        # 3. Image Editor alanındaysa space_data'dan al
         if context.space_data and context.space_data.type == 'IMAGE_EDITOR':
             if context.space_data.image:
                 return context.space_data.image
 
-        # 2. 3D Viewport veya Texture Paint modundaysa aktif materyalden bul
-        obj = context.active_object
-        if obj and obj.active_material and obj.active_material.use_nodes:
-            nodes = obj.active_material.node_tree.nodes
-            # Aktif seçili Image Texture node'u var mı?
-            for node in nodes:
-                if node.type == 'TEX_IMAGE' and node.select and node.image:
-                    return node.image
-            # Yoksa ilk Image Texture node'unun imajını al
-            for node in nodes:
+        # 4. Fallback: Aktif materyaldeki diğer Image Texture node'ları
+        if obj and getattr(obj, "active_material", None) and getattr(obj.active_material, "use_nodes", False):
+            for node in obj.active_material.node_tree.nodes:
                 if node.type == 'TEX_IMAGE' and node.image:
                     return node.image
 
@@ -61,26 +69,14 @@ class BlenderImageAdapter:
             (H, W, 4) şeklinde [0.0 - 1.0] aralığında float32 NumPy array
         """
         width, height = image.size[0], image.size[1]
-        channels = image.channels
 
-        # Piksel dizisi float32 olarak (H * W * channels) uzunluğundadır
-        pixels = np.empty(width * height * channels, dtype=np.float32)
+        # Blender Image.pixels DAİMA 4 kanallı (RGBA) float32 dizisidir
+        total_pixels = width * height * 4
+        pixels = np.empty(total_pixels, dtype=np.float32)
         image.pixels.foreach_get(pixels)
 
-        # (Height, Width, Channels) şeklinde yeniden şekillendir
-        pixels = pixels.reshape((height, width, channels))
-
-        # Eğer 3 kanallı (RGB) ise 4 kanala (RGBA) genişlet
-        if channels == 3:
-            alpha = np.ones((height, width, 1), dtype=np.float32)
-            pixels = np.concatenate([pixels, alpha], axis=-1)
-        elif channels == 1:
-            # Grayscale ise RGBA yap
-            rgb = np.repeat(pixels, 3, axis=-1)
-            alpha = np.ones((height, width, 1), dtype=np.float32)
-            pixels = np.concatenate([rgb, alpha], axis=-1)
-
-        return pixels
+        # (Height, Width, 4) şeklinde yeniden şekillendir
+        return pixels.reshape((height, width, 4))
 
     @staticmethod
     def numpy_to_image(array: np.ndarray, target_image: bpy.types.Image) -> None:
@@ -99,10 +95,13 @@ class BlenderImageAdapter:
 
         # 4 kanala uydur ve clip et
         data = np.clip(array, 0.0, 1.0).astype(np.float32)
-        if data.shape[-1] != target_image.channels:
-            if target_image.channels == 4 and data.shape[-1] == 3:
-                alpha = np.ones((height, width, 1), dtype=np.float32)
-                data = np.concatenate([data, alpha], axis=-1)
+        if data.ndim == 2:
+            alpha = np.ones((height, width, 1), dtype=np.float32)
+            rgb = np.repeat(data[..., np.newaxis], 3, axis=-1)
+            data = np.concatenate([rgb, alpha], axis=-1)
+        elif data.shape[-1] == 3:
+            alpha = np.ones((height, width, 1), dtype=np.float32)
+            data = np.concatenate([data, alpha], axis=-1)
 
         target_image.pixels.foreach_set(data.ravel())
         target_image.update()

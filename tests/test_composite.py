@@ -41,6 +41,25 @@ class TestMaskProcessor:
         inverted = MaskProcessor.invert_mask(mask)
         np.testing.assert_allclose(inverted, [[1.0, 0.75, 0.0]])
 
+    def test_dilate_and_erode_zero_iterations(self):
+        """0 iterasyon ile dilate ve erode işlemlerinin maskeyi değiştirmeden kopyaladığını test et."""
+        mask = np.zeros((8, 8), dtype=np.float32)
+        mask[3:5, 3:5] = 1.0
+
+        dilated = MaskProcessor.dilate_mask(mask, iterations=0)
+        np.testing.assert_allclose(dilated, mask)
+
+        eroded = MaskProcessor.erode_mask(mask, iterations=0)
+        np.testing.assert_allclose(eroded, mask)
+
+    def test_dilate_expands_mask(self):
+        """Dilation işleminin maskeyi genişlettiğini test et."""
+        mask = np.zeros((9, 9), dtype=np.float32)
+        mask[4, 4] = 1.0
+
+        dilated = MaskProcessor.dilate_mask(mask, iterations=1)
+        assert dilated[3:6, 3:6].sum() == 9.0
+
 
 class TestTextureCompositor:
     def test_full_mask_compositing(self):

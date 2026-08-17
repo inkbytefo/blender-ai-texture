@@ -96,17 +96,40 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
                 self.report({'WARNING'}, "Lütfen ne üretmek istediğinizi Prompt alanına yazın!")
                 return {'CANCELLED'}
 
-        # 6. Maskeli alanın bounding box'ını bul ve kırp
-        bbox = ResolutionManager.get_mask_bounding_box(mask, padding=16)
+        # 6. Maskeli alanın bounding box'ını bul ve kırp (Photoshop Context Padding)
+        pad_val = getattr(props, "context_padding", 32) if operation != AIOperation.GENERATE else 0
+        bbox = ResolutionManager.get_mask_bounding_box(mask, padding=pad_val)
         cropped_original = ResolutionManager.crop_region(original_pixels, bbox)
         cropped_mask = ResolutionManager.crop_region(mask, bbox)
         crop_h, crop_w = cropped_original.shape[:2]
 
-        # 7. Referans görsel varsa NumPy olarak al
+        if crop_h <= 0 or crop_w <= 0:
+            cropped_original = original_pixels.copy()
+            cropped_mask = mask.copy()
+            crop_h, crop_w = h, w
+            bbox = (0, 0, w, h)
+
+        # 7. Referans Görsel & 3D Context Yakalama
         ref_images = []
+        has_manual_ref = False
         if props.reference_image:
             ref_arr = BlenderImageAdapter.image_to_numpy(props.reference_image)
             ref_images.append(ref_arr)
+            has_manual_ref = True
+
+        # Eğer manuel referans verilmediyse ve Auto 3D Context açıksa: 3D modelin viewport görüntüsünü referans ekle
+        active_mesh_obj = getattr(context, "active_object", None)
+        if not has_manual_ref and getattr(props, "use_3d_context", True) and active_mesh_obj and active_mesh_obj.type == 'MESH':
+            from ..blender.viewport_adapter import BlenderViewportAdapter
+            vp_snapshot = BlenderViewportAdapter.capture_viewport_image(context)
+            if vp_snapshot is not None:
+                ref_images.append(vp_snapshot)
+                prompt_text = (
+                    f"Seamless UV texture for 3D object '{active_mesh_obj.name}' "
+                    f"(align placement and details according to the 3D viewport perspective shown in reference). "
+                    f"{prompt_text}"
+                )
+                logger.info("Injected 3D Viewport context into 2D generation request", object=active_mesh_obj.name)
 
         # 8. AI İstek (AIRequest) nesnesi oluştur
         req_w, req_h = ResolutionManager.find_best_generation_size(crop_w, crop_h)
@@ -146,14 +169,17 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
 
             composited_variations: List[np.ndarray] = []
             for gen_img in response.images:
+                # 1. AI çıktısını kırpılan bağlam boyutuna ölçekle
                 gen_cropped = ResolutionManager.resize_image(gen_img, crop_w, crop_h)
-                gen_full = ResolutionManager.place_region(original_pixels, gen_cropped, bbox)
-                comp = TextureCompositor.composite_with_feather(
-                    original=original_pixels,
-                    generated=gen_full,
-                    mask=mask,
+                # 2. Kırpılan bölge içinde maskeli feather kompozitleme yap (Photoshop Generative Fill)
+                comp_cropped = TextureCompositor.composite_with_feather(
+                    original=cropped_original,
+                    generated=gen_cropped,
+                    mask=cropped_mask,
                     feather_radius=feather_rad,
                 )
+                # 3. Birleştirilmiş bölgeyi orijinal dokudaki tam konumuna yerleştir
+                comp = ResolutionManager.place_region(original_pixels, comp_cropped, bbox)
                 composited_variations.append(comp)
 
             state_mgr.update(
@@ -164,10 +190,13 @@ class AITEXTURE_OT_generate(bpy.types.Operator):
 
             preview_img = ImageManager.create_or_update_preview(target_image, composited_variations[0])
 
-            for area in bpy.context.screen.areas if bpy.context.screen else []:
-                if area.type == 'IMAGE_EDITOR' and area.spaces.active:
-                    area.spaces.active.image = preview_img
-                area.tag_redraw()
+            for window in getattr(getattr(bpy.context, "window_manager", None), "windows", []):
+                for area in getattr(window.screen, "areas", []):
+                    if area.type == 'IMAGE_EDITOR' and area.spaces.active:
+                        area.spaces.active.image = preview_img
+
+            from ..blender.material_adapter import BlenderMaterialAdapter
+            BlenderMaterialAdapter.force_viewport_redraw()
 
             logger.info("Texture generation preview ready", mask_type=mask_desc)
 
