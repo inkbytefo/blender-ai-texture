@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Blender-4.2%2B%20%7C%205.x-E87D0D?style=for-the-badge&logo=blender&logoColor=white" alt="Blender Version">
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python Version">
-  <img src="https://img.shields.io/badge/Tests-37%20Passing-brightgreen?style=for-the-badge" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-39%20Passing-brightgreen?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge" alt="License">
 </p>
 
@@ -30,11 +30,11 @@
 * ⚡ **Ultra Hızlı ve Akıcı Arayüz (60+ FPS):**  
   Ağır piksel hesaplamalarını panel çizim döngüsünden izole ettik. Blender'ın arayüzü yağ gibi akar, sıfır takılma yaşarsın.
 
-* 🧠 **Dünyanın En Güçlü AI Modelleri Elinin Altında:**  
-  * **fal.ai:** FLUX.2 [pro], FLUX.1 Kontext [pro], FLUX.1 [schnell] (4 adımda ultra hızlı!), FLUX.1 [dev], FLUX.1 Inpainting, Recraft V3.
-  * **OpenAI:** Yepyeni GPT Image 2 (mükemmel tipografi ve metin) & GPT Image 2 Edit.
+* 🧠 **Dünyanın En Güçlü AI Sağlayıcıları ve Modelleri Elinin Altında:**  
+  * **OpenRouter:** GPT Image 2, ByteDance Seedream 4.5, FLUX.2 Pro, FLUX.1 Schnell, Recraft V3, Gemini 2.5 Flash Image.
+  * **fal.ai:** FLUX.2 [pro], FLUX.1 Kontext [pro], FLUX.1 [schnell] (4 adımda ultra hızlı!), FLUX.1 [dev], Nano Banana 2, GPT Image 2.
+  * **OpenAI (ChatGPT):** Resmi GPT Image 2, GPT Image 1.5, GPT Image 1, GPT Image 1 Mini, DALL-E 3, DALL-E 2.
   * **Google:** Yeni nesil Nano Banana 2 (`gemini-3.1-flash-image`), Nano Banana 2 Lite, Nano Banana Pro, Gemini 2.5 Flash Image.
-  * **OpenAI Uyumlu:** Yerel modeller (LocalAI, LM Studio, Ollama) veya özel endpointler.
   * **Custom Model ID:** İstediğin herhangi bir özel model ID'sini tek tıkla kullanabilirsin.
 
 * 🔄 **Sonsuz Geri Alma & Varyasyon Seçimi:**  
@@ -62,7 +62,7 @@ Eklentimiz Blender'ın en yeni **Extension Manifest** standardına %100 uyumludu
 ### 1. API Anahtarını Gir
 * Blender'da **Image Editor** (Görsel Düzenleyici) penceresini açın.
 * Sağ taraftaki **N-Panel**'den **AI Texture** sekmesine tıklayın.
-* **Settings & AI Setup** altından dilediğiniz sağlayıcıyı (**fal.ai**, **Google Gemini** veya **OpenAI**) seçip API Key'inizi yapıştırın.
+* **Settings & AI Setup** altından dilediğiniz sağlayıcıyı (**OpenRouter**, **fal.ai**, **OpenAI** veya **Google Gemini**) seçip API Key'inizi yapıştırın.
 
 ### 2. Doku Oluşturma (Text-to-Texture)
 * Yeni bir doku açın veya mevcut bir dokuyu seçin.
@@ -82,15 +82,18 @@ Eklentimiz Blender'ın en yeni **Extension Manifest** standardına %100 uyumludu
 
 | Sağlayıcı | Model Adı | Endpoint ID | En İyi Kullanım Alanı |
 |---|---|---|---|
+| **OpenRouter** | **GPT Image 2** | `openai/gpt-image-2` | Üst düzey tipografi, yüksek detaylı dokular |
+| **OpenRouter** | **Seedream 4.5** | `bytedance-seed/seedream-4.5` | ByteDance yüksek çözünürlüklü fotogerçekçi dokular |
+| **OpenRouter** | **FLUX.2 [pro]** | `black-forest-labs/flux.2-pro` | En yüksek FLUX kalite standardı |
+| **OpenRouter** | **Recraft V3** | `recraft/recraft-v3` | Profesyonel grafik, illüstrasyon ve tasarım |
 | **fal.ai** | **FLUX.2 [pro]** | `fal-ai/flux-2-pro` | En yüksek kalite, sıralı doku düzenleme |
 | **fal.ai** | **FLUX.1 Kontext [pro]** | `fal-ai/flux-pro/kontext` | Referans görselle bağlamsal düzenleme |
 | **fal.ai** | **FLUX.1 [schnell]** | `fal-ai/flux/schnell` | Ultra hızlı (4 adım), ekonomik prototipleme |
-| **fal.ai** | **GPT Image 2** | `openai/gpt-image-2` | Üzerinde yazı/logo olan dokular, tipografi |
 | **fal.ai** | **GPT Image 2 Edit** | `openai/gpt-image-2/edit` | Nokta atışı inpainting ve bölgesel tamirat |
 | **fal.ai** | **Nano Banana 2** | `fal-ai/nano-banana-2/edit` | Google'ın en yeni SOTA çok modlu görsel modeli |
+| **OpenAI** | **GPT Image 2** | `gpt-image-2` | Resmi OpenAI API ile doğrudan ultra detaylı üretim |
 | **Google** | **Nano Banana 2** | `gemini-3.1-flash-image` | Doğrudan Google AI Studio API üzerinden üretim |
 | **Google** | **Nano Banana Pro** | `gemini-3-pro-image` | En yüksek Google detay seviyesi |
-| **OpenAI** | **DALL-E 3** | `dall-e-3` | Standart OpenAI görsel üretimi |
 
 ---
 
@@ -103,7 +106,7 @@ Eklenti, harici kütüphane bağımlılığı olmadan saf Python ve NumPy ile ya
 git clone https://github.com/inkbytefo/blender-ai-texture.git
 cd blender-ai-texture
 
-# Birim testlerini çalıştırın (37 test)
+# Birim testlerini çalıştırın (39 test)
 pytest tests/ -v
 
 # Eklenti zip paketini derleyin

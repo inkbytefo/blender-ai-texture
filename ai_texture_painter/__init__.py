@@ -31,6 +31,7 @@ from .operators.uninstall import AITEXTURE_OT_uninstall
 from .ai.registry import get_registry
 from .ai.providers.mock import MockProvider
 from .ai.providers.openai_compatible import OpenAICompatibleProvider
+from .ai.providers.openrouter import OpenRouterProvider
 from .ai.providers.gemini import GeminiProvider
 from .ai.providers.fal_ai import FalAIProvider
 
@@ -107,6 +108,7 @@ def register():
     registry = get_registry()
     registry.register(MockProvider())
     registry.register(OpenAICompatibleProvider())
+    registry.register(OpenRouterProvider())
     registry.register(GeminiProvider())
     registry.register(FalAIProvider())
 

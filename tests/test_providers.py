@@ -187,6 +187,57 @@ class TestFalAIProvider:
             assert response.model_name == "fal-ai/flux/dev"
             assert response.metadata.get("fal_request_id") == "test-req-123"
 
+class TestOpenRouterProvider:
+    def test_missing_api_key(self):
+        """API anahtarı eksik olduğunda hata yanıtı dönmelidir."""
+        from ai_texture_painter.ai.providers.openrouter import OpenRouterProvider
+        provider = OpenRouterProvider()
+        req = AIRequest(
+            operation=AIOperation.GENERATE,
+            prompt="futuristic sci-fi door texture",
+            width=512,
+            height=512,
+        )
+        with patch.object(provider, "_get_credentials", return_value=("", "https://openrouter.ai/api/v1", "openai/gpt-image-2", "high")):
+            response = provider.generate(req)
+            assert response.success is False
+            assert response.error_code == "API_KEY_MISSING"
+
+    @patch("ai_texture_painter.ai.transport.http.HttpClient.post_json")
+    def test_generate_text_to_image_success(self, mock_post_json):
+        """OpenRouter Image API text-to-image isteği testi."""
+        from ai_texture_painter.ai.providers.openrouter import OpenRouterProvider
+        provider = OpenRouterProvider()
+        req = AIRequest(
+            operation=AIOperation.GENERATE,
+            prompt="sci-fi cyber panel",
+            width=256,
+            height=256,
+            variation_count=1,
+        )
+
+        sample_img = np.ones((256, 256, 4), dtype=np.float32) * 0.8
+        b64 = base64.b64encode(numpy_to_png_bytes(sample_img)).decode("utf-8")
+
+        mock_post_json.return_value = {
+            "created": 1748372400,
+            "data": [
+                {"b64_json": b64, "media_type": "image/png"}
+            ],
+            "usage": {
+                "total_tokens": 4175,
+                "cost": 0.04
+            }
+        }
+
+        with patch.object(provider, "_get_credentials", return_value=("sk-or-test-key", "https://openrouter.ai/api/v1", "openai/gpt-image-2", "high")):
+            response = provider.generate(req)
+            assert response.success is True
+            assert len(response.images) == 1
+            assert response.images[0].shape == (256, 256, 4)
+            assert response.metadata.get("cost") == 0.04
+
+
 class TestHttpClient:
     def test_http_exception_properties(self):
         """HttpException sınıfının durum ve hata kodlarını tutmasını test et."""
@@ -194,3 +245,4 @@ class TestHttpClient:
         assert exc.status_code == 401
         assert exc.error_code == "AUTH_ERROR"
         assert str(exc) == "Yetkisiz"
+

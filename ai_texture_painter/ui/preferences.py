@@ -32,12 +32,13 @@ class AITexturePreferences(bpy.types.AddonPreferences):
         name="AI Provider",
         description="Kullanılacak AI sağlayıcısı",
         items=[
+            ('OPENROUTER', "OpenRouter", "OpenRouter (GPT Image 2, Seedream 4.5, FLUX.2, Recraft vb.)"),
+            ('FAL_AI', "fal.ai", "fal.ai (Nano Banana 2, FLUX.1/2, GPT Image 2 vb.)"),
+            ('OPENAI_COMPATIBLE', "OpenAI (ChatGPT)", "OpenAI resmi API (GPT Image 2, DALL-E 3) veya uyumlu servisler"),
+            ('GEMINI', "Google Gemini / Imagen", "Google AI Studio (Nano Banana 2, Gemini Flash / Pro)"),
             ('MOCK', "Mock (Test)", "Test sağlayıcısı — API anahtarı gerekmez"),
-            ('FAL_AI', "fal.ai", "fal.ai (FLUX.1 Kontext, Schnell, Dev, Pro, Recraft vb.)"),
-            ('OPENAI_COMPATIBLE', "OpenAI Compatible", "OpenAI DALL-E, OpenRouter, Together, LocalAI"),
-            ('GEMINI', "Google Gemini / Imagen", "Google AI Studio (Imagen 3, Gemini Flash / Pro)"),
         ],
-        default='FAL_AI',
+        default='OPENROUTER',
     )
 
     # ── fal.ai Ayarları ──
@@ -73,6 +74,54 @@ class AITexturePreferences(bpy.types.AddonPreferences):
         name="Custom Model ID",
         description="Özel fal.ai model ID'si (Örn: fal-ai/flux-pro/kontext)",
         default="",
+    )
+
+    # ── OpenRouter Ayarları ──
+
+    openrouter_api_key: bpy.props.StringProperty(
+        name="OpenRouter API Key",
+        description="OpenRouter API anahtarınız (openrouter.ai/keys)",
+        subtype='PASSWORD',
+        default="",
+    )
+
+    openrouter_base_url: bpy.props.StringProperty(
+        name="Base URL",
+        description="OpenRouter API uç noktası",
+        default="https://openrouter.ai/api/v1",
+    )
+
+    openrouter_model_choice: bpy.props.EnumProperty(
+        name="Model",
+        description="Kullanılacak OpenRouter görsel modeli",
+        items=[
+            ('openai/gpt-image-2', "GPT Image 2 (OpenAI Next-Gen)", "OpenAI GPT Image 2 en güncel görsel modeli (Önerilen)"),
+            ('bytedance-seed/seedream-4.5', "Seedream 4.5 (ByteDance High Quality)", "ByteDance Seedream 4.5 yüksek kalite görsel modeli"),
+            ('black-forest-labs/flux.2-pro', "FLUX.2 [pro] (Black Forest Labs)", "En yüksek kaliteli FLUX.2 modeli"),
+            ('black-forest-labs/flux-1-schnell', "FLUX.1 [schnell] (Hızlı)", "FLUX.1 Schnell hızlı görsel üretim modeli"),
+            ('google/gemini-2.5-flash-image', "Gemini 2.5 Flash Image (Google)", "Google Gemini multimodal görsel modeli"),
+            ('recraft/recraft-v3', "Recraft V3 (Tasarım & Raster/Vektör)", "Recraft V3 profesyonel tasarım modeli"),
+            ('CUSTOM', "Custom Model ID (Özel Model)", "OpenRouter üzerindeki herhangi bir görsel model slug'ı"),
+        ],
+        default='openai/gpt-image-2',
+    )
+
+    openrouter_custom_model: bpy.props.StringProperty(
+        name="Custom Model ID",
+        description="Özel OpenRouter model ID (Örn: stabilityai/stable-diffusion-3.5-large)",
+        default="",
+    )
+
+    openrouter_quality: bpy.props.EnumProperty(
+        name="Kalite",
+        description="Görsel üretim kalitesi",
+        items=[
+            ('high', "High (Yüksek Kalite)", "En yüksek detay ve çözünürlük"),
+            ('medium', "Medium (Orta)", "Dengeli kalite ve maliyet"),
+            ('low', "Low (Hızlı Taslak)", "En hızlı ve en ekonomik taslak üretimi"),
+            ('auto', "Auto (Otomatik)", "Sağlayıcının varsayılanı"),
+        ],
+        default='high',
     )
 
     # ── OpenAI / Compatible Ayarları ──
@@ -182,6 +231,17 @@ class AITexturePreferences(bpy.types.AddonPreferences):
         if provider == 'MOCK':
             box.label(text="Mock Provider (Test Modu)", icon='INFO')
             box.label(text="İnternet bağlantısı veya API anahtarı gerekmez. Sentetik doku üretir.")
+
+        elif provider == 'OPENROUTER':
+            box.label(text="OpenRouter Ayarları", icon='LOCKED')
+            box.prop(self, "openrouter_api_key")
+            box.prop(self, "openrouter_base_url")
+            box.prop(self, "openrouter_model_choice", text="Model")
+            if self.openrouter_model_choice == 'CUSTOM':
+                box.prop(self, "openrouter_custom_model", text="Custom ID")
+            box.prop(self, "openrouter_quality", text="Kalite")
+            box.separator()
+            box.label(text="API Key: openrouter.ai/keys", icon='URL')
 
         elif provider == 'FAL_AI':
             box.label(text="fal.ai Ayarları", icon='LOCKED')

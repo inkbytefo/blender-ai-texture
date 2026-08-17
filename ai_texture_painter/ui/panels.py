@@ -200,6 +200,13 @@ class AITEXTURE_PT_settings_panel(bpy.types.Panel):
             if prefs.active_provider == 'MOCK':
                 box_api.label(text="Mock: API anahtarı gerekmez.", icon='INFO')
 
+            elif prefs.active_provider == 'OPENROUTER':
+                box_api.prop(prefs, "openrouter_api_key", text="API Key")
+                box_api.prop(prefs, "openrouter_model_choice", text="Model")
+                if prefs.openrouter_model_choice == 'CUSTOM':
+                    box_api.prop(prefs, "openrouter_custom_model", text="Custom ID")
+                box_api.prop(prefs, "openrouter_quality", text="Kalite")
+
             elif prefs.active_provider == 'FAL_AI':
                 box_api.prop(prefs, "fal_api_key", text="API Key")
                 box_api.prop(prefs, "fal_model_choice", text="Model")
