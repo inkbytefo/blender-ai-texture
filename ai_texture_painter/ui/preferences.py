@@ -92,14 +92,18 @@ class AITexturePreferences(bpy.types.AddonPreferences):
 
     openai_model_choice: bpy.props.EnumProperty(
         name="Model",
-        description="Kullanılacak OpenAI uyumlu model",
+        description="Kullanılacak OpenAI / ChatGPT modeli",
         items=[
-            ('dall-e-3', "DALL-E 3 (High Quality)", "OpenAI en yüksek kaliteli model"),
-            ('dall-e-2', "DALL-E 2 (Fast / Inpaint)", "OpenAI hızlı inpainting modeli"),
-            ('gpt-4o', "GPT-4o (Multimodal)", "OpenAI multimodal görsel modeli"),
+            ('gpt-image-2', "GPT Image 2 (Official OpenAI Next-Gen)", "OpenAI en güncel, yüksek detay ve mükemmel tipografi modeli (Önerilen)"),
+            ('gpt-image-1.5', "GPT Image 1.5", "OpenAI GPT Image 1.5 modeli"),
+            ('gpt-image-1', "GPT Image 1", "OpenAI GPT Image 1 modeli"),
+            ('gpt-image-1-mini', "GPT Image 1 Mini", "Hızlı ve ekonomik OpenAI modeli"),
+            ('dall-e-3', "DALL-E 3 (High Quality)", "OpenAI DALL-E 3 modeli"),
+            ('dall-e-2', "DALL-E 2 (Legacy Inpaint)", "OpenAI DALL-E 2 modeli"),
+            ('gpt-4o', "GPT-4o (Multimodal)", "OpenAI GPT-4o multimodal modeli"),
             ('CUSTOM', "Custom Model ID (Özel Model)", "Özel model ID"),
         ],
-        default='dall-e-3',
+        default='gpt-image-2',
     )
 
     openai_custom_model: bpy.props.StringProperty(

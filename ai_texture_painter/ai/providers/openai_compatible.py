@@ -49,18 +49,27 @@ class OpenAICompatibleProvider(AIProvider):
         }
 
     def get_models(self) -> List[str]:
-        return ["dall-e-3", "dall-e-2", "gpt-4o", "flux-1-schnell"]
+        return [
+            "gpt-image-2",
+            "gpt-image-1.5",
+            "gpt-image-1",
+            "gpt-image-1-mini",
+            "dall-e-3",
+            "dall-e-2",
+            "gpt-4o",
+            "CUSTOM",
+        ]
 
     def _get_credentials(self) -> tuple[str, str, str]:
         """Preferences'tan API anahtarı, Base URL ve model adını alır."""
         prefs = get_addon_preferences()
         api_key = getattr(prefs, "openai_api_key", "").strip() if prefs else ""
         base_url = getattr(prefs, "openai_base_url", "https://api.openai.com/v1").strip() if prefs else "https://api.openai.com/v1"
-        choice = getattr(prefs, "openai_model_choice", "dall-e-3") if prefs else "dall-e-3"
+        choice = getattr(prefs, "openai_model_choice", "gpt-image-2") if prefs else "gpt-image-2"
 
         if choice == "CUSTOM":
             model = getattr(prefs, "openai_custom_model", "").strip() if prefs else ""
-            model = model or "dall-e-3"
+            model = model or "gpt-image-2"
         else:
             model = choice
 
@@ -89,6 +98,7 @@ class OpenAICompatibleProvider(AIProvider):
 
         # İstenen çözünürlüğü hazırla (örn: 1024x1024)
         size_str = f"{request.width}x{request.height}"
+        is_gpt_image = "gpt-image" in model.lower()
 
         try:
             # 1. Inpainting / Edit işlemi (/v1/images/edits)
@@ -99,21 +109,22 @@ class OpenAICompatibleProvider(AIProvider):
                 # Kaynak ve maskeyi PNG baytlarına çevir
                 src_png = numpy_to_png_bytes(request.source_image)
 
-                # DALL-E 2 maskede alfa kanalında şeffaf alanları (alpha=0) düzenler
-                # Maskemizde 1.0 olan yerleri düzenlenebilir şeffaf yapacağız
+                # Maskede alfa kanalı ekle (RGBA)
                 mask_rgba = np.zeros((request.mask.shape[0], request.mask.shape[1], 4), dtype=np.float32)
-                # Maskenin 1 olduğu yerlerde Alpha = 0.0 (şeffaf), 0 olduğu yerlerde Alpha = 1.0 (opak)
+                # Maskenin 1 olduğu yerlerde Alpha = 0.0 (şeffaf/düzenlenecek), 0 olduğu yerlerde Alpha = 1.0 (opak)
+                mask_rgba[..., :3] = request.mask[..., np.newaxis]
                 mask_rgba[..., 3] = 1.0 - np.clip(request.mask, 0.0, 1.0)
                 mask_png = numpy_to_png_bytes(mask_rgba)
 
                 fields = {
                     "prompt": request.prompt or "fill area seamlessly",
-                    "n": str(min(request.variation_count, 4)),
+                    "n": str(min(request.variation_count, 4) if model != "dall-e-3" else 1),
                     "size": size_str,
                     "response_format": "b64_json",
+                    "model": model,
                 }
-                if model and model != "dall-e-3":
-                    fields["model"] = model
+                if is_gpt_image:
+                    fields["quality"] = "high"
 
                 files = {
                     "image": ("image.png", src_png, "image/png"),
@@ -134,6 +145,8 @@ class OpenAICompatibleProvider(AIProvider):
                     "size": size_str,
                     "response_format": "b64_json",
                 }
+                if is_gpt_image:
+                    payload["quality"] = "high"
 
                 response_data = HttpClient.post_json(url, data=payload, headers=headers, timeout=360.0)
 
